@@ -29,5 +29,5 @@ class Person:
 
     @classmethod
     def from_dict(cls, data: dict) -> "Person":
-        # TODO (Vũ): lọc key lạ, xử lý thiếu field nếu cần
+        # Ignore graph metadata or other extra keys; optional fields may be absent.
         return cls(**{k: data.get(k) for k in cls.__dataclass_fields__})

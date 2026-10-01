@@ -31,4 +31,11 @@ CRUD Person, tìm kiếm, xem chi tiết, validation Person.
 pytest tests/person -v
 ```
 
+## Hành vi
+- ID được chuẩn hóa khoảng trắng ở đầu/cuối; ID trùng bị từ chối bằng unique constraint.
+- Tên bắt buộc, giới tính là `MALE` hoặc `FEMALE`, ngày sinh (nếu có) dùng `YYYY-MM-DD` và không ở tương lai.
+- Tìm kiếm tên/ID không phân biệt hoa thường; có thể lọc giới tính.
+- Không cho đổi ID. Xóa Person đang có quan hệ gia đình sẽ bị chặn để giữ dữ liệu quan hệ.
+- Các field tùy chọn vắng mặt được trả về với giá trị `None` trong dict Person.
+
 Chi tiết task: xem `docs/MEMBER_VU.md`.
