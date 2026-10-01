@@ -13,6 +13,7 @@ Thống kê tổng số người, số nam / nữ.
 
 Dashboard **không có repository riêng**: query đếm nằm ở `features/person/repository.py`
 (`count_all`, `count_by_gender`) và được expose qua `person.service.get_statistics()`.
+Database trống hiển thị `0` ở cả ba chỉ số; lỗi kết nối được báo trên trang.
 
 ## Test
 ```bash
