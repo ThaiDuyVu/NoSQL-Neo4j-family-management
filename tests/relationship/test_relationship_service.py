@@ -1,55 +1,96 @@
-"""
-============================================================
-FEATURE OWNER: SƠN — TEST: RELATIONSHIP SERVICE
-============================================================
-Gợi ý: monkeypatch features.person.service.get_person và features.relationship.repository
-để test validation không cần Neo4j.
-"""
 import pytest
-
-TODO = "TODO (Sơn): implement"
-
-
-@pytest.mark.skip(reason=TODO)
-def test_add_father_of_success():
-    """Cha MALE -> con: tạo thành công."""
+from features.relationship.service import RelationshipService, RELATIONSHIP_TYPES
 
 
-@pytest.mark.skip(reason=TODO)
-def test_father_must_be_male():
-    """FATHER_OF với người FEMALE -> lỗi."""
+@pytest.fixture
+def mock_deps(mocker):
+    mock_repo = mocker.Mock()
+    mock_person_svc = mocker.Mock()
+    service = RelationshipService(repo=mock_repo, person_service=mock_person_svc)
+    return service, mock_repo, mock_person_svc
 
 
-@pytest.mark.skip(reason=TODO)
-def test_mother_must_be_female():
-    """MOTHER_OF với người MALE -> lỗi."""
+def test_add_relationship_success(mock_deps):
+    service, mock_repo, mock_person_svc = mock_deps
+
+    mock_person_svc.get_person.side_effect = lambda pid: {
+        "P1": {"id": "P1", "name": "Cha", "gender": "MALE"},
+        "P2": {"id": "P2", "name": "Con", "gender": "FEMALE"}
+    }.get(pid)
+
+    mock_repo.relationship_exists.return_value = False
+    mock_repo.count_parents.return_value = {"father_count": 0, "mother_count": 0}
+    mock_repo.is_ancestor.return_value = False
+    mock_repo.create_relationship.return_value = True
+
+    rel_type = RELATIONSHIP_TYPES.get("FATHER_OF", "FATHER_OF")
+    result = service.add_relationship("P1", "P2", rel_type)
+    assert result is True
 
 
-@pytest.mark.skip(reason=TODO)
-def test_cannot_relate_to_self():
-    """from_id == to_id -> lỗi."""
+def test_self_relationship_error(mock_deps):
+    service, _, _ = mock_deps
+    rel_type = RELATIONSHIP_TYPES.get("FATHER_OF", "FATHER_OF")
+    with pytest.raises(ValueError, match="Không thể tạo quan hệ với chính mình"):
+        service.add_relationship("P1", "P1", rel_type)
 
 
-@pytest.mark.skip(reason=TODO)
-def test_child_cannot_have_two_fathers():
-    """Con đã có cha, thêm cha thứ 2 -> lỗi."""
+def test_father_must_be_male(mock_deps):
+    service, mock_repo, mock_person_svc = mock_deps
+    mock_person_svc.get_person.side_effect = lambda pid: {
+        "P1": {"id": "P1", "name": "Mẹ", "gender": "FEMALE"},
+        "P2": {"id": "P2", "name": "Con", "gender": "MALE"}
+    }.get(pid)
+
+    mock_repo.relationship_exists.return_value = False
+
+    rel_type = RELATIONSHIP_TYPES.get("FATHER_OF", "FATHER_OF")
+    with pytest.raises(ValueError, match="Cha phải có giới tính là Nam"):
+        service.add_relationship("P1", "P2", rel_type)
 
 
-@pytest.mark.skip(reason=TODO)
-def test_no_ancestor_cycle():
-    """A là cha B, thêm B là cha A -> lỗi vòng lặp."""
+def test_multiple_fathers_error(mock_deps):
+    service, mock_repo, mock_person_svc = mock_deps
+    mock_person_svc.get_person.side_effect = lambda pid: {
+        "P1": {"id": "P1", "name": "Cha2", "gender": "MALE"},
+        "P2": {"id": "P2", "name": "Con", "gender": "MALE"}
+    }.get(pid)
+
+    mock_repo.relationship_exists.return_value = False
+    mock_repo.count_parents.return_value = {"father_count": 1, "mother_count": 0}
+
+    rel_type = RELATIONSHIP_TYPES.get("FATHER_OF", "FATHER_OF")
+    with pytest.raises(ValueError, match="đã có cha"):
+        service.add_relationship("P1", "P2", rel_type)
 
 
-@pytest.mark.skip(reason=TODO)
-def test_duplicate_relationship_rejected():
-    """Thêm lại relationship đã có -> lỗi."""
+def test_ancestor_loop_error(mock_deps):
+    service, mock_repo, mock_person_svc = mock_deps
+    mock_person_svc.get_person.side_effect = lambda pid: {
+        "P1": {"id": "P1", "name": "Ông", "gender": "MALE"},
+        "P2": {"id": "P2", "name": "Cháu", "gender": "MALE"}
+    }.get(pid)
+
+    mock_repo.relationship_exists.return_value = False
+    mock_repo.count_parents.return_value = {"father_count": 0, "mother_count": 0}
+    mock_repo.is_ancestor.return_value = True
+
+    rel_type = RELATIONSHIP_TYPES.get("FATHER_OF", "FATHER_OF")
+    with pytest.raises(ValueError, match="vòng lặp tổ tiên"):
+        service.add_relationship("P1", "P2", rel_type)
 
 
-@pytest.mark.skip(reason=TODO)
-def test_spouse_rules():
-    """SPOUSE_OF: giới hạn số vợ/chồng, không phải cha/mẹ/con của nhau."""
+def test_spouse_rules(mock_deps):
+    service, mock_repo, mock_person_svc = mock_deps
+    mock_person_svc.get_person.side_effect = lambda pid: {
+        "P1": {"id": "P1", "name": "Chồng", "gender": "MALE"},
+        "P2": {"id": "P2", "name": "Vợ", "gender": "FEMALE"}
+    }.get(pid)
 
+    mock_repo.relationship_exists.return_value = False
+    mock_repo.is_ancestor.return_value = False
+    mock_repo.count_spouses.return_value = 1
 
-@pytest.mark.skip(reason=TODO)
-def test_unknown_person_rejected():
-    """Person không tồn tại -> lỗi."""
+    rel_type = RELATIONSHIP_TYPES.get("SPOUSE_OF", "SPOUSE_OF")
+    with pytest.raises(ValueError, match="đã có hôn phối"):
+        service.add_relationship("P1", "P2", rel_type)

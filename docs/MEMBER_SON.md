@@ -92,3 +92,29 @@ pytest tests/relationship -v
 - `tests/person/*`, `tests/kinship/*`
 - Block TAKE NOTE của Vũ / Đạt trong `app.py`
 - Không import `features/person/repository.py`
+
+# MEMBER SƠN — Relationship & Family Graph Domain
+
+## Overview
+Chịu trách nhiệm cho 2 domain chính trong hệ thống Family Management:
+1. **Relationship Management (`features/relationship`)**: Quản lý các mối quan hệ `FATHER_OF`, `MOTHER_OF`, `SPOUSE_OF` giữa các cá nhân, đảm bảo toàn vẹn dữ liệu và kiểm tra các ràng buộc gia tộc.
+2. **Family Graph Visualization (`features/family_graph`)**: Trực quan hóa cây gia tộc dạng Đồ thị tương tác trực quan (Vis.js HTML container).
+
+## Business Rules Validations
+- **Giao tiếp tầng**: `page` -> `service` -> `repository` -> `Neo4jConnection`.
+- **Ràng buộc Cha/Mẹ**:
+  - Cha (`FATHER_OF`) bắt buộc là Nam (`MALE`).
+  - Mẹ (`MOTHER_OF`) bắt buộc là Nữ (`FEMALE`).
+  - Mỗi cá nhân tối đa 1 Cha và 1 Mẹ.
+  - Chống vòng lặp tổ tiên (Cycle Detection via Neo4j `*1..`).
+- **Ràng buộc Hôn phối**:
+  - `SPOUSE_OF` không được thiết lập giữa những người có quan hệ huyết thống trực hệ (Cha/Mẹ - Con).
+  - Tối đa 1 vợ/chồng tại một thời điểm.
+- **Ràng buộc chung**:
+  - Không tạo quan hệ với chính mình.
+  - Không duplicate relationship.
+
+## Lệnh Chạy Test
+```bash
+pytest tests/relationship -v
+
