@@ -1,29 +1,20 @@
-"""
-============================================================
-FEATURE OWNER: VŨ
-DOMAIN: DASHBOARD
-============================================================
+"""Dashboard for Person counts."""
+import streamlit as st
 
-Responsibilities:
-- UI Dashboard: tổng số người, thống kê nam / nữ
-- CHỈ gọi features/dashboard/service.py
-
-============================================================
-"""
-import streamlit as st  # noqa: F401
-
-from features.dashboard import service  # noqa: F401
-from shared.ui import page_header, show_todo
+from features.dashboard import service
+from shared.ui import page_header
 
 
 def render() -> None:
     page_header("Dashboard", owner="Vũ", description="Tổng quan dữ liệu nhân thân.")
-    show_todo(
-        "Vũ",
-        [
-            "Gọi service.get_dashboard_stats()",
-            "st.metric: tổng số người, số nam, số nữ",
-            "(tùy chọn) biểu đồ tỉ lệ nam/nữ",
-            "Xử lý khi database trống hoặc chưa kết nối Neo4j",
-        ],
-    )
+    try:
+        stats = service.get_dashboard_stats()
+    except Exception as exc:
+        st.error(f"Không tải được thống kê từ Neo4j: {exc}")
+        return
+    total, male, female = st.columns(3)
+    total.metric("Tổng số người", stats["total"])
+    male.metric("Nam", stats["male"])
+    female.metric("Nữ", stats["female"])
+    if stats["total"] == 0:
+        st.info("Chưa có dữ liệu Person.")
