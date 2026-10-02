@@ -19,20 +19,60 @@ from features.kinship.resolver import KinshipResult
 
 
 def list_selectable_persons() -> list[dict]:
-    """OWNER: Đạt — TODO: lấy Person cho selectbox A/B qua person_service.list_persons()."""
-    raise NotImplementedError
+    """Lấy và sắp xếp danh sách Person dùng cho hai selectbox."""
+    persons = person_service.list_persons(limit=1000)
+    return sorted(persons, key=lambda person: (person.get("full_name") or "", person.get("id") or ""))
 
 
 def find_kinship(person_a_id: str, person_b_id: str) -> KinshipResult:
-    """
-    OWNER: Đạt
+    """Điều phối validate, tìm path, resolve xưng hô và format kết quả."""
+    person_a_id = (person_a_id or "").strip()
+    person_b_id = (person_b_id or "").strip()
+    if not person_a_id or not person_b_id:
+        return KinshipResult(found=False, message="Vui lòng chọn đủ Person A và Person B.")
+    if person_a_id == person_b_id:
+        return KinshipResult(
+            found=False,
+            person_a_id=person_a_id,
+            person_b_id=person_b_id,
+            message="Person A và Person B phải là hai người khác nhau.",
+        )
 
-    TODO:
-    - validate: A và B đã chọn, A != B (xử lý rõ ràng nếu A == B)
-    - lấy genders của A, B (person_service.get_person)
-    - steps = search_service.search_relationship_path(a, b)
-    - nếu không có path -> KinshipResult(found=False, message=...)
-    - resolver.resolve_kinship(steps, a_gender, b_gender)
-    - gắn path_text bằng search_service.format_path_text
-    """
-    raise NotImplementedError
+    person_a = person_service.get_person(person_a_id)
+    person_b = person_service.get_person(person_b_id)
+    if person_a is None or person_b is None:
+        missing_id = person_a_id if person_a is None else person_b_id
+        return KinshipResult(
+            found=False,
+            person_a_id=person_a_id,
+            person_b_id=person_b_id,
+            message=f"Không tìm thấy Person {missing_id}.",
+        )
+
+    steps = search_service.search_relationship_path(person_a_id, person_b_id)
+    if steps is None:
+        return KinshipResult(
+            found=False,
+            person_a_id=person_a_id,
+            person_b_id=person_b_id,
+            message="Không tìm thấy đường đi quan hệ giữa hai người.",
+        )
+
+    result = resolver.resolve_kinship(
+        steps,
+        person_a.get("gender") or "",
+        person_b.get("gender") or "",
+    )
+    persons_by_id = {
+        person_a_id: person_a,
+        person_b_id: person_b,
+    }
+    for step in steps:
+        persons_by_id.setdefault(step.from_id, {"full_name": step.from_name})
+        persons_by_id.setdefault(step.to_id, {"full_name": step.to_name})
+
+    result.person_a_id = person_a_id
+    result.person_b_id = person_b_id
+    result.steps = steps
+    result.path_text = search_service.format_path_text(steps, persons_by_id)
+    return result
